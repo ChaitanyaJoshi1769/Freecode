@@ -1,0 +1,358 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// User Management
+// ============================================================================
+
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  username      String     @unique
+  password      String
+  firstName     String?
+  lastName      String?
+  avatar        String?
+  bio           String?
+
+  // User preferences
+  theme         Theme      @default(SYSTEM)
+  language      String     @default("en")
+
+  // Account status
+  isVerified    Boolean    @default(false)
+  isActive      Boolean    @default(true)
+
+  // Relations
+  submissions   Submission[]
+  userProgress  UserProgress[]
+  bookmarks     Bookmark[]
+  discussions   Discussion[]
+  comments      Comment[]
+
+  // Timestamps
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([email])
+  @@index([username])
+}
+
+enum Theme {
+  LIGHT
+  DARK
+  SYSTEM
+}
+
+// ============================================================================
+// Problems Management
+// ============================================================================
+
+model Problem {
+  id            String     @id @default(cuid())
+
+  // Basic info
+  title         String
+  slug          String     @unique
+  description   String     // HTML content
+  difficulty    Difficulty
+
+  // Problem details
+  likes         Int        @default(0)
+  dislikes      Int        @default(0)
+  acceptanceRate Float     @default(0)
+  totalSubmissions Int     @default(0)
+
+  // Topic and company tags
+  topics        String[]   @default([]) // Stored as array
+  companies     String[]   @default([]) // Stored as array
+
+  // Examples and constraints
+  examples      String     // JSON string of examples
+  constraints   String?    // HTML content
+  hints         String[]   @default([])
+
+  // Status
+  isPublished   Boolean    @default(true)
+  isPremium     Boolean    @default(false)
+
+  // Relations
+  testCases     TestCase[]
+  submissions   Submission[]
+  userProgress  UserProgress[]
+  bookmarks     Bookmark[]
+  discussions   Discussion[]
+
+  // Timestamps
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([difficulty])
+  @@index([slug])
+  @@index([isPublished])
+  @@fulltext([title, description])
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+model TestCase {
+  id            String     @id @default(cuid())
+  problemId     String
+  problem       Problem    @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  // Input/output
+  input         String
+  output        String
+
+  // Metadata
+  isPublic      Boolean    @default(true)
+  explanation   String?
+
+  // Timestamps
+  createdAt     DateTime   @default(now())
+
+  @@index([problemId])
+}
+
+// ============================================================================
+// Submissions
+// ============================================================================
+
+model Submission {
+  id            String     @id @default(cuid())
+
+  // Relations
+  userId        String
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  problemId     String
+  problem       Problem    @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  // Code and execution
+  code          String
+  language      Language
+
+  // Results
+  status        SubmissionStatus
+  error         String?
+  stdout        String?
+  stderr        String?
+
+  // Performance metrics
+  executionTime Int?       // milliseconds
+  memoryUsed    Int?       // MB
+
+  // Test results
+  testResults   String     // JSON string of test results
+  passedTests   Int        @default(0)
+  totalTests    Int        @default(0)
+
+  // Timestamps
+  createdAt     DateTime   @default(now())
+
+  @@index([userId])
+  @@index([problemId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum Language {
+  PYTHON
+  JAVASCRIPT
+  TYPESCRIPT
+  JAVA
+  CPP
+  CSHARP
+  GOLANG
+  RUST
+  RUBY
+  PHP
+  KOTLIN
+  SWIFT
+}
+
+enum SubmissionStatus {
+  PENDING
+  RUNNING
+  ACCEPTED
+  WRONG_ANSWER
+  TIME_LIMIT_EXCEEDED
+  MEMORY_LIMIT_EXCEEDED
+  COMPILATION_ERROR
+  RUNTIME_ERROR
+}
+
+// ============================================================================
+// User Progress Tracking
+// ============================================================================
+
+model UserProgress {
+  id            String     @id @default(cuid())
+
+  userId        String
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  problemId     String
+  problem       Problem    @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  // Status
+  status        ProblemStatus @default(TODO)
+  attempts      Int        @default(0)
+
+  // Last submission
+  lastSubmissionAt DateTime?
+  lastSubmission   Submission?
+
+  // Timestamps
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@unique([userId, problemId])
+  @@index([userId])
+  @@index([problemId])
+}
+
+enum ProblemStatus {
+  TODO
+  IN_PROGRESS
+  SOLVED
+  ATTEMPTED
+}
+
+// ============================================================================
+// Bookmarks
+// ============================================================================
+
+model Bookmark {
+  id            String     @id @default(cuid())
+
+  userId        String
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  problemId     String
+  problem       Problem    @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  // Timestamps
+  createdAt     DateTime   @default(now())
+
+  @@unique([userId, problemId])
+  @@index([userId])
+  @@index([problemId])
+}
+
+// ============================================================================
+// Discussions & Comments
+// ============================================================================
+
+model Discussion {
+  id            String     @id @default(cuid())
+
+  userId        String
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  problemId     String
+  problem       Problem    @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  // Content
+  title         String
+  content       String     // HTML content
+
+  // Engagement
+  views         Int        @default(0)
+  likes         Int        @default(0)
+
+  // Status
+  isPinned      Boolean    @default(false)
+  isLocked      Boolean    @default(false)
+
+  // Relations
+  comments      Comment[]
+
+  // Timestamps
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([problemId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Comment {
+  id            String     @id @default(cuid())
+
+  userId        String
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  discussionId  String
+  discussion    Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+
+  // Content
+  content       String     // HTML content
+
+  // Engagement
+  likes         Int        @default(0)
+
+  // Timestamps
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([discussionId])
+  @@index([userId])
+}
+
+// ============================================================================
+// Admin & System
+// ============================================================================
+
+model AdminLog {
+  id            String     @id @default(cuid())
+
+  userId        String
+  action        AdminAction
+
+  // Details
+  resourceType  String
+  resourceId    String?
+  details       String?    // JSON
+
+  // Timestamps
+  createdAt     DateTime   @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+enum AdminAction {
+  CREATE_PROBLEM
+  UPDATE_PROBLEM
+  DELETE_PROBLEM
+  CREATE_USER
+  DELETE_USER
+  BLOCK_USER
+  UNBLOCK_USER
+  OTHER
+}
+
+model SystemConfig {
+  id            String     @id @default(cuid())
+  key           String     @unique
+  value         String
+  description   String?
+
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}

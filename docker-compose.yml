@@ -1,0 +1,113 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: freecode-postgres
+    environment:
+      POSTGRES_USER: freecode
+      POSTGRES_PASSWORD: freecode
+      POSTGRES_DB: freecode
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U freecode"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - freecode-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: freecode-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - freecode-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: freecode-backend
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://freecode:freecode@postgres:5432/freecode
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: your-super-secret-jwt-key-change-this-in-production
+      REFRESH_TOKEN_SECRET: your-super-secret-refresh-token-key-change-this-in-production
+      FRONTEND_URL: http://localhost:3000
+      CORS_ORIGIN: http://localhost:3000
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/prisma:/app/prisma
+    command: npm run dev
+    networks:
+      - freecode-network
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: freecode-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_API_URL: http://localhost:3001
+    volumes:
+      - ./frontend/src:/app/src
+    command: npm run dev
+    networks:
+      - freecode-network
+
+  # Code Execution Worker
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    container_name: freecode-worker
+    environment:
+      NODE_ENV: development
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://freecode:freecode@postgres:5432/freecode
+      DOCKER_HOST: unix:///var/run/docker.sock
+    depends_on:
+      - redis
+      - postgres
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./worker/src:/app/src
+    command: npm run dev
+    networks:
+      - freecode-network
+
+networks:
+  freecode-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
