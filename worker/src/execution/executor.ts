@@ -1,7 +1,14 @@
 import { Language } from './types';
 import { PythonExecutor } from './languages/python';
 import { JavaScriptExecutor } from './languages/javascript';
+import { JavaExecutor } from './languages/java';
+import { CppExecutor } from './languages/cpp';
+import { GoExecutor } from './languages/go';
+import { RustExecutor } from './languages/rust';
+import { RubyExecutor } from './languages/ruby';
 import { Logger } from '../config/logger';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const logger = new Logger('CodeExecutor');
 
@@ -11,6 +18,13 @@ export interface ExecutionRequest {
   problemId: string;
   code: string;
   language: Language;
+  testCases: Array<{
+    id: string;
+    input: string;
+    output: string;
+  }>;
+  timeLimit: number;
+  memoryLimit: number;
 }
 
 export interface ExecutionResult {
@@ -42,7 +56,7 @@ export async function executeCode(request: ExecutionRequest): Promise<ExecutionR
   try {
     const executor = getExecutor(request.language);
     const result = await executor.execute(request);
-    logger.info(`Execution complete for submission ${request.submissionId}`);
+    logger.info(`Execution complete for submission ${request.submissionId}: ${result.status}`);
     return result;
   } catch (error) {
     logger.error(`Execution failed for submission ${request.submissionId}: ${error}`);
@@ -64,8 +78,21 @@ function getExecutor(language: Language) {
     case Language.JAVASCRIPT:
     case Language.TYPESCRIPT:
       return new JavaScriptExecutor();
-    // More executors coming in Phase 2
+    case Language.JAVA:
+      return new JavaExecutor();
+    case Language.CPP:
+      return new CppExecutor();
+    case Language.GOLANG:
+      return new GoExecutor();
+    case Language.RUST:
+      return new RustExecutor();
+    case Language.RUBY:
+      return new RubyExecutor();
     default:
       throw new Error(`Language ${language} not yet supported`);
   }
+}
+
+export function getExecutionTimeout(timeLimit: number): number {
+  return Math.min(timeLimit + 1000, 10000); // Add 1s buffer, max 10s
 }
