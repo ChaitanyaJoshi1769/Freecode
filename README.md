@@ -1,4 +1,4 @@
-# 🚀 Freecode - LeetCode Clone
+# 🚀 Freecode
 
 A production-ready, full-stack coding platform built with modern technologies. Freecode provides an interactive environment for coding challenges with support for multiple programming languages, real-time code execution, and a comprehensive problem library.
 
