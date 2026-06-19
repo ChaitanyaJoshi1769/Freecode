@@ -6,6 +6,7 @@ import { ProblemsModule } from './problems/problems.module';
 import { SubmissionsModule } from './submissions/submissions.module';
 import { UsersModule } from './users/users.module';
 import { DiscussionsModule } from './discussions/discussions.module';
+import { AdminModule } from './admin/admin.module';
 import { PrismaService } from './common/prisma/prisma.service';
 import { databaseConfig } from './config/database.config';
 import { jwtConfig } from './config/jwt.config';
@@ -31,7 +32,8 @@ import { jwtConfig } from './config/jwt.config';
     ProblemsModule,
     SubmissionsModule,
     UsersModule,
-    DiscussionsModule
+    DiscussionsModule,
+    AdminModule
   ],
   providers: [PrismaService]
 })
